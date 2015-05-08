@@ -1,5 +1,7 @@
 # Improving Unsupervised Salience Learning for Person Re-identification
+
 4772 Advanced Machine Learning final project
+
 Modified by Wei Dai (wd2248)
 
 Reference code: MATLAB code for our CVPR 2013 work "R. Zhao, W. Ouyang, and X. Wang. [Unsupervised Salience Learning for Person Re-identification](http://www.ee.cuhk.edu.hk/~rzhao/project/salience_cvpr13/zhaoOWcvpr13.pdf). In CVPR 2013."
