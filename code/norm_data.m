@@ -11,10 +11,9 @@
 % Pattern Recognition (CVPR), 2013. 
 %
 switch lower(dataset)
-
     case 'viper'
-        
         files_a = dir([dataset_dir, '/cam_a/*.bmp']);
+        
         files_b = dir([dataset_dir, '/cam_b/*.bmp']);
         
         np = length(files_a);
@@ -43,7 +42,7 @@ switch lower(dataset)
         
     case {'ethz1', 'ethz2', 'ethz3'}
         
-        seq = strcat(strrep(lower(dataset), 'ethz', 'seq'), '\');
+        seq = strcat(strrep(lower(dataset), 'ethz', 'seq'), '/');
         switch lower(dataset)
             case 'ethz1'
                 np = 83;
@@ -54,12 +53,12 @@ switch lower(dataset)
         end
         hwait = waitbar(0, ['Normalizing ', dataset, ' dataset ...']);
         for p = 1:np
-            imdir = sprintf('%s\\%sp%03d', dataset_dir(1:end-2), seq, p);
-            files = dir([imdir, '\*.png']);
+            imdir = sprintf('%s/%sp%03d', dataset_dir(1:end-2), seq, p);
+            files = dir([imdir, '/*.png']);
             ttsize = length(files);
             
             for i = 1:ttsize
-                im          =   imread([imdir, '\', files(i).name]);
+                im          =   imread([imdir, '/', files(i).name]);
                 img_hsv     =   rgb2hsv(im);
                 tmp         =   img_hsv(:,:,3);
                 tmp         =   histeq(tmp); % Color Equalization

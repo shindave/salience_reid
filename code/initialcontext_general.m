@@ -9,7 +9,7 @@
 % for Person Re-identification. In IEEE Conference of Computer Vision and
 % Pattern Recognition (CVPR), 2013. 
 %
-
+disp(['IN initialcontext_general: dnorm_Dir: ',dnorm_dir])
 files = dir([dnorm_dir, '*.png']);
 fnames = {files.name};
 array_all = cell2mat(fnames');

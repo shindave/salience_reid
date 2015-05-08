@@ -12,15 +12,18 @@
 % Pattern Recognition (CVPR), 2013. 
 %
 
-function dfeat = get_densefeature(I, options_color, options_sift, nynx)
+function dfeat = get_densefeature(I, options_color, options_sift, options_texture, nynx)
 % dense color [nbins=32][nx*ny][nscales=3][ncolor=3]
 dcolor_tmp = sp_dense_color(I, options_color);
 dsift_tmp = reshape(sp_dense_sift(I, options_sift), 128, nynx, options_sift.color);
+dtexture_temp = reshape(sp_dense_texture(I, options_texture), 160, nynx, options_texture.color);
 
-dfeat = zeros(options_color.nbins*3*3 + 128*3, nynx);
+dfeat = zeros(options_color.nbins*3*3 + 128*3 + 160*3, nynx);
+% dfeat = zeros(options_color.nbins*3*3 + 128*3, nynx);
 for i = 1:nynx
     dfeat(:, i) = [reshape(dcolor_tmp(:, i, :, :), [], 1); ...
-        reshape(dsift_tmp(:, i, :), [], 1)];
+        reshape(dsift_tmp(:, i, :), [], 1); ...
+        reshape(dtexture_temp(:, i, :), [], 1)];
 end
 
 % apply PCA to reduce dimensionalitiy??

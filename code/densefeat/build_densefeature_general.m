@@ -44,7 +44,14 @@ options2.clamp                                 = 0.2;
 options2.sigma_edge                            = 1.2;
 [options2.kernely , options2.kernelx]          = gen_dgauss(options2.sigma_edge);
 
-dim = options1.nbins*3*3 + 128*3;
+% common options for dense texture feature (added by Wei Dai)
+clear options3;
+options3.gridspacing                       = gridstep;
+options3.patchsize                         = patchsize;
+options3.color                             = 3;
+options3.clamp                             = 0.2;
+
+dim = options1.nbins*3*3 + 128*3 + 160 *3;
 % featset = zeros(options1.nbins*3*3 + 128*3, nx, ttsize);
 batchsize = 8;
 densefeat_bat = zeros(dim, ny*nx, batchsize);
@@ -55,9 +62,10 @@ tlen = length(index);
 hwait = waitbar(0, 'Extracting features ...');
 for s = 1:floor(tlen/batchsize)
     start = 0 + (s-1)*batchsize;
+%     for i = 1:batchsize
     parfor i = 1:batchsize
         fprintf('computing dense feature for %d-th image ...\n', start+i);
-        densefeat_bat(:, :, i) = get_densefeature(data{start+i}, options1, options2, ny*nx);
+        densefeat_bat(:, :, i) = get_densefeature(data{start+i}, options1, options2, options3, ny*nx);
     end
     for i = 1:batchsize
         densefeat = densefeat_bat(:, :, i);

@@ -1,7 +1,6 @@
 % Main function entry for evaluating on VIPeR dataset
 %
-% Created by Rui Zhao, rzhao@ee.cuhk.edu.hk
-% This code is release under BSD license, please cite our paper if you use this code:
+% Modified by Wei Dai for Columbia W4772 AML final project.
 %
 % Rui Zhao, Wanli Ouyang, and Xiaogang Wang. Unsupervised Salience Learning
 % for Person Re-identification. In IEEE Conference of Computer Vision and
@@ -19,16 +18,18 @@ par = struct(...
     'dataset',                      'viper', ... % 'viper'
     'baseExp',                      'unsupervised_salience', ...
     'method',                       'salience', ... % 'patchmatch', 'salience' ...
-    'TRIAL',                        test_trial, ... % average over 10 trials to obtain stable result
+    'TRIAL',                        test_trial, ... 
     'gridstep',                     4, ...
     'patchsize',                    10, ...
-    'Nr',                           100, ... 
+    'Nr',                           100, ...
+    'KofNr',                        0.2, ...
     'sigma1',                       2.8, ...
     'msk_thr',                      0.2, ...
     'norm_data',                    0, ...
     'new_feat',                     0, ...
     'use_mask',                     1, ...
     'use_salience',                 1, ... % set 1 to use knn salience, and set 2 to use ocsvm salience
+    'svm_kernel',                   1, ... % set 1 to use default rbf kernel, 2 linear kernel, 3 polynomial kernel, 4 sigmod
     'alpha',                        [-1, 0, 0, 0, 0],  ... %[-1, 0.4, 1, 0.6, 0], ... %
     'L2',                           1, ...
     'swap',                         1 ...
@@ -87,10 +88,10 @@ end
 %% Compute patch match for computing salience
 clear ref_pwmap_prb ref_pwmap_gal;
 Nr = par.Nr;
-
+KofNr = par.KofNr;
 if par.use_salience
 
-    if ~exist([pwdist_dir, 'pwmap_ref_trial', num2str(TRIAL), '.mat'], 'file')
+    if ~exist([pwdist_dir, 'pwmap_ref_trial', num2str(TRIAL),'_Nr_',num2str(Nr), '.mat'], 'file')
         
         % load testing data
         feat_gal = zeros(dim, ny*nx, gsize);
@@ -128,11 +129,11 @@ if par.use_salience
             end
         end
         
-        save([pwdist_dir, 'pwmap_ref_trial', num2str(TRIAL), '.mat'], 'ref_pwmap_prb', 'ref_pwmap_gal');
+        save([pwdist_dir, 'pwmap_ref_trial', num2str(TRIAL),'_Nr_',num2str(Nr), '.mat'], 'ref_pwmap_prb', 'ref_pwmap_gal');
         close(hwait);
         
     else
-        load([pwdist_dir, 'pwmap_ref_trial', num2str(TRIAL), '.mat']);
+        load([pwdist_dir, 'pwmap_ref_trial', num2str(TRIAL),'_Nr_',num2str(Nr), '.mat']);
     end
 
 end
@@ -200,7 +201,7 @@ switch par.use_salience
         
     case 1 % KNN salience
         
-        if ~exist([salience_dir, 'knn_salience_trial', num2str(TRIAL), '.mat'], 'file')
+        if ~exist([salience_dir, 'knn_salience_trial', num2str(TRIAL),'_KofNr_',num2str(KofNr*100), '.mat'], 'file')
             
             cellmap_gal = struct2cell(ref_pwmap_gal);
             cellmap_prb = struct2cell(ref_pwmap_prb);
@@ -208,18 +209,18 @@ switch par.use_salience
             dists_prb = cell2mat(reshape(cellmap_prb(1, :, :), 1, 1, gsize, Nr));
             rdists_gal = sort(dists_gal, 4);
             rdists_prb = sort(dists_prb, 4);
-            maxdist_gal = rdists_gal(:, :, :, floor(Nr/2));
-            maxdist_prb = rdists_prb(:, :, :, floor(Nr/2));
+            maxdist_gal = rdists_gal(:, :, :, floor(Nr*KofNr));
+            maxdist_prb = rdists_prb(:, :, :, floor(Nr*KofNr));
             
             % normalize
             lwdist = min(maxdist_gal(:));
             updist = max(maxdist_gal(:));
             salience_gal = (maxdist_gal-lwdist)./(updist-lwdist);
             salience_prb = (maxdist_prb-lwdist)./(updist-lwdist);
-            save([salience_dir, 'knn_salience_trial', num2str(TRIAL), '.mat'], 'salience_gal', 'salience_prb');
+            save([salience_dir, 'knn_salience_trial', num2str(TRIAL),'_KofNr_',num2str(KofNr*100), '.mat'], 'salience_gal', 'salience_prb');
             
         else
-            load([salience_dir, 'knn_salience_trial', num2str(TRIAL), '.mat']);
+            load([salience_dir, 'knn_salience_trial', num2str(TRIAL),'_KofNr_',num2str(KofNr*100), '.mat']);
         end
         
         % convert to cell for computation convenience
@@ -230,7 +231,7 @@ switch par.use_salience
         
     case 2 % One-Class SVM salience, which may consume more computation time
         
-        if ~exist([salience_dir, 'ocsvm_salience_trial', num2str(TRIAL), '.mat'], 'file')
+        if ~exist([salience_dir, 'ocsvm_salience_trial', num2str(TRIAL),'_kernel', num2str(par.svm_kernel), '.mat'], 'file')
             
             % load reference data
             ref_feat_gal = zeros(dim, ny*nx, Nr);
@@ -264,9 +265,10 @@ switch par.use_salience
                 xnn = reshape(xnn, ny*nx, Nr);
                 dists = reshape(dists_gal(:, :, i, :), ny*nx, Nr);
                 maxidx = zeros(1, ny*nx);
+                svmkernel = par.svm_kernel;
                 parfor j = 1:ny*nx
                     X = cell2mat(xnn(j, :))';
-                    [~, maxidx(j)] = ocsvm_max(X);
+                    [~, maxidx(j)] = ocsvm_max(X, svmkernel);
                 end
                 maxdist_gal(:, i) = dists(sub2ind([ny*nx, Nr], 1:ny*nx, maxidx));
                 waitbar(i/gsize, hwait, ['Computing OCSVM salience for gallery image ', num2str(i), '/', num2str(gsize)]);
@@ -284,9 +286,10 @@ switch par.use_salience
                 xnn = reshape(xnn, ny*nx, Nr);
                 dists = reshape(dists_prb(:, :, i, :), ny*nx, Nr);
                 maxidx = zeros(1, ny*nx);
+                svmkernel = par.svm_kernel;
                 parfor j = 1:ny*nx
                     X = cell2mat(xnn(j, :))';
-                    [~, maxidx(j)] = ocsvm_max(X);
+                    [~, maxidx(j)] = ocsvm_max(X, svmkernel);
                 end
                 maxdist_prb(:, i) = dists(sub2ind([ny*nx, Nr], 1:ny*nx, maxidx));
                 waitbar(i/gsize, hwait, ['Computing OCSVM salience for probe image ', num2str(i), '/', num2str(gsize)]);
@@ -299,11 +302,11 @@ switch par.use_salience
             salience_gal = (maxdist_gal-lwdist)./(updist-lwdist);
             salience_prb = (maxdist_prb-lwdist)./(updist-lwdist);
             
-            save([salience_dir, 'ocsvm_salience_trial', num2str(TRIAL), '.mat'], 'salience_gal', 'salience_prb');
+            save([salience_dir, 'ocsvm_salience_trial', num2str(TRIAL), '_kernel', num2str(par.svm_kernel),'.mat'], 'salience_gal', 'salience_prb');
             close(hwait);
             
         else
-            load([salience_dir, 'ocsvm_salience_trial', num2str(TRIAL), '.mat']);
+            load([salience_dir, 'ocsvm_salience_trial', num2str(TRIAL), '_kernel', num2str(par.svm_kernel), '.mat']);
         end
         
         % convert to cells for computation convenience
@@ -321,7 +324,7 @@ end
 clear phi;
 phi = cell(gsize, gsize);
 
-parfor i = 1:numel(D_cell)
+for i = 1:numel(D_cell)
         phi{i} = phiFun(D_cell{i}, P_cell{i}, mp_cell{i}, sp_cell{i}, sg_cell{i}, mg_cell{i}, par);
 end
 
@@ -347,6 +350,14 @@ pwdist = par.alpha(1).*pwdist_sal + ...
 
 %% evaluate re-identification performance
 CMC = evaluate_pwdist(pwdist); 
+if par.use_salience == 2
+    save([salience_dir, 'ocsvm_salience_trial', num2str(TRIAL), '_kernel', num2str(par.svm_kernel),'textureCMC','.mat'], 'CMC');
+end
+
+if par.use_salience == 1
+    save([salience_dir, 'knn_salience_nr_', num2str(par.Nr),'_KofNr_',num2str(KofNr*100),'CMC.mat'], 'CMC');
+end
+
 fprintf('CMC-rank1:%2.2f%%\n', CMC(1)*100);
 
 close all force;
